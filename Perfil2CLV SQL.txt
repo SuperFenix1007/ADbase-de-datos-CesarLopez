@@ -1,0 +1,162 @@
+DROP DATABASE IF EXISTS QuickDine;
+
+-- Creación de la base de datos QuickDine
+CREATE DATABASE QuickDine;
+
+-- Uso de la base de datos QuickDine
+USE QuickDine;
+
+-- Creación de la tabla de usuarios
+CREATE TABLE comensales(
+    comensal_id VARCHAR(36) PRIMARY KEY,
+    nombre_comensal VARCHAR(50) NOT NULL,
+    apellido_comensal VARCHAR(50) NOT NULL,
+    numero_contacto VARCHAR(10) UNIQUE,
+    direccion_entrega VARCHAR(255) NOT NULL
+);
+
+-- Creación de la tabla de empleados
+CREATE TABLE trabajadores(
+    trabajador_id VARCHAR(36) PRIMARY KEY,
+    nombre_trabajador VARCHAR(50) NOT NULL,
+    apellido_trabajador VARCHAR(50) NOT NULL,
+    puesto VARCHAR(50) NOT NULL,
+    fecha_contratacion DATE NOT NULL,
+    salario DECIMAL(10,2),
+    CHECK(salario >= 365)
+);
+
+-- Creación de la tabla de pedidos
+CREATE TABLE ordenes(
+    orden_id VARCHAR(36) PRIMARY KEY,
+    comensal_id VARCHAR(36) NOT NULL,
+    fecha_orden DATE NOT NULL,
+    total_monto DECIMAL(10,2) NOT NULL,
+    estado ENUM('En Proceso', 'Enviado', 'Cancelado') NOT NULL,
+    trabajador_id VARCHAR(36) NOT NULL,
+    FOREIGN KEY (comensal_id)
+    REFERENCES comensales(comensal_id),
+    FOREIGN KEY (trabajador_id)
+    REFERENCES trabajadores(trabajador_id)
+);
+
+-- Creación de la tabla de productos
+CREATE TABLE platillos(
+    platillo_id VARCHAR(36) PRIMARY KEY,
+    nombre_platillo VARCHAR(100) NOT NULL,
+    descripcion_platillo VARCHAR(500) NOT NULL,
+    precio DECIMAL(10,2) NOT NULL,
+    CHECK(precio >= 1),
+    existencias INT NOT NULL,
+    CHECK(existencias >= 0)
+);
+
+-- Creación de la tabla de detalles de órdenes
+CREATE TABLE detalles_ordenes(
+    detalle_id VARCHAR(36) PRIMARY KEY,
+    orden_id VARCHAR(36) NOT NULL,
+    platillo_id VARCHAR(36) NOT NULL,
+    cantidad INT NOT NULL,
+    precio_unitario DECIMAL(10,2) NOT NULL,
+    subtotal DECIMAL(10,2) NOT NULL,
+    FOREIGN KEY (orden_id)
+    REFERENCES ordenes(orden_id),
+    FOREIGN KEY (platillo_id)
+    REFERENCES platillos(platillo_id)
+);
+
+-- TRIGGER QUE ACTUALIZA LAS EXISTENCIAS DE PLATILLOS
+-- CUANDO SE EJECUTA 1 INSERT EN detalles_ordenes
+
+CREATE TRIGGER actualizar_existencias 
+AFTER INSERT ON detalles_ordenes
+FOR EACH ROW
+UPDATE platillos
+SET existencias = existencias - NEW.cantidad
+WHERE platillo_id = NEW.platillo_id;
+
+-- INSERTS NECESARIOS PARA EJECUTAR EL TRIGGER
+
+-- Inserción de un trabajador
+INSERT INTO trabajadores VALUES(UUID(), 'Cesar', 'Lopez', 'Gerente', '2022-01-01', 1000);
+
+-- Inserción de un platillo
+INSERT INTO platillos VALUES(UUID(), 'Pizza Margarita', 'Deliciosa pizza con tomate', 12.50, 30);
+
+-- Inserción de un comensal
+INSERT INTO comensales VALUES(UUID(), 'Dennis', 'Carrillo', '98765432', 'Calle Principal');
+
+-- Inserción de una orden
+INSERT INTO ordenes VALUES(UUID(), '2792ec60-d656-11ee-8955-a4bb6dda87ba', '2020-05-04', 30.00, 'En Proceso', 'c01fba02-d652-11ee-8955-a4bb6dda87ba');
+
+-- Inserción de un detalle de orden
+INSERT INTO detalles_ordenes VALUES(UUID(), '3f8a60c7-d656-11ee-8955-a4bb6dda87ba', 'c02031b6-d652-11ee-8955-a4bb6dda87ba', 2, 12.50, 25.00);
+
+-- Procedimiento almacenado
+
+-- Inserción de valores en la tabla comensales
+DELIMITER $$
+CREATE PROCEDURE insertar_comensales_multiples()
+BEGIN
+    DECLARE i INT DEFAULT 1;
+    WHILE i <= 15 DO
+        INSERT INTO comensales VALUES(UUID(), CONCAT('Cliente', i), CONCAT('ApellidoCliente', i), CONCAT('1234567', i), CONCAT('Direccion', i));
+        SET i = i + 1;
+    END WHILE;
+END$$
+DELIMITER ;
+CALL insertar_comensales_multiples();
+
+-- Inserción de valores en la tabla trabajadores
+DELIMITER $$
+CREATE PROCEDURE insertar_trabajadores_multiples()
+BEGIN
+    DECLARE i INT DEFAULT 1;
+    WHILE i <= 15 DO
+        INSERT INTO trabajadores VALUES(UUID(), CONCAT('Trabajador', i), CONCAT('ApellidoTrabajador', i), CONCAT('Puesto', i), '2022-01-01', 1000);
+        SET i = i + 1;
+    END WHILE;
+END$$
+DELIMITER ;
+CALL insertar_trabajadores_multiples();
+
+-- Inserción de valores en la tabla ordenes
+DELIMITER $$
+CREATE PROCEDURE insertar_ordenes_multiples()
+BEGIN
+    DECLARE i INT DEFAULT 1;
+    WHILE i <= 15 DO
+        INSERT INTO ordenes VALUES(UUID(), (SELECT comensal_id FROM comensales ORDER BY RAND() LIMIT 1), '2024-02-28', 15.00 * i, 'En Proceso', (SELECT trabajador_id FROM trabajadores ORDER BY RAND() LIMIT 1));
+        SET i = i + 1;
+    END WHILE;
+END$$
+DELIMITER ;
+CALL insertar_ordenes_multiples();
+
+-- Inserción de valores en la tabla platillos
+DELIMITER $$
+CREATE PROCEDURE insertar_platillos_multiples()
+BEGIN
+    DECLARE i INT DEFAULT 1;
+    WHILE i <= 15 DO
+        INSERT INTO platillos VALUES(UUID(), CONCAT('Platillo', i), CONCAT('Descripcion', i), 5.00 * i, 50);
+        SET i = i + 1;
+    END WHILE;
+END$$
+DELIMITER ;
+CALL insertar_platillos_multiples();
+
+-- Inserción de valores en la tabla detalles_ordenes
+DELIMITER $$
+CREATE PROCEDURE insertar_detalles_ordenes_multiples()
+BEGIN
+    DECLARE i INT DEFAULT 1;
+    WHILE i <= 15 DO
+        INSERT INTO detalles_ordenes VALUES(UUID(), (SELECT orden_id FROM ordenes ORDER BY RAND() LIMIT 1), (SELECT platillo_id FROM platillos ORDER BY RAND() LIMIT 1), i, 5.00 * i, 15.00 * i);
+        SET i = i + 1;
+    END WHILE;
+END$$
+DELIMITER ;
+CALL insertar_detalles_ordenes_multiples();
+
+
